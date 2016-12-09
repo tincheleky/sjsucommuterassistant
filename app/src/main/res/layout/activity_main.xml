@@ -1,0 +1,79 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:map="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.tin.sjsucommuterassistant.activities.MainActivity"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:weightSum="100"
+    android:orientation="vertical">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="15">
+
+        <TextView
+            android:id="@+id/display_hello_user"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Hi, Tin"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:textSize="35sp"
+            android:onClick="showLoginDialog"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="15"
+        android:orientation="horizontal"
+        android:weightSum="100"
+        android:paddingLeft="15dp"
+        android:paddingRight="5dp">
+
+        <TextView
+            android:id="@+id/display_weather"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="20"
+            android:text="Delay "
+            android:layout_gravity="center"
+            android:gravity="left|center"
+            android:textSize="25sp"/>
+
+        <TextView
+            android:id="@+id/display_traffic_delay"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="65"
+            android:paddingRight="15dp"
+            android:text="XX minutes "
+            android:layout_gravity="center"
+            android:gravity="center|right"
+            android:textSize="25sp"/>
+
+        <ImageButton
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:id="@+id/display_traffic_status"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="15"
+            android:background="@android:color/holo_green_light" />
+
+    </LinearLayout>
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="70"/>
+
+
+
+</LinearLayout>
