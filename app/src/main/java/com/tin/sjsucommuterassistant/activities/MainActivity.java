@@ -1,8 +1,12 @@
 package com.tin.sjsucommuterassistant.activities;
 
+import android.content.ContentValues;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.net.Uri;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -36,6 +40,8 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.tin.sjsucommuterassistant.R;
 import com.tin.sjsucommuterassistant.dialogs.LoginDialog;
+import com.tin.sjsucommuterassistant.providers.DataContentProvider;
+import com.tin.sjsucommuterassistant.tasks.DistanceMatrixTask;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
@@ -43,6 +49,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 111;
     public static final int UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
     public static final int FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
+    public static final String USER_DISPLAY_NAME = "USER_DISPLAY_NAME";
     private static final int RC_SIGN_IN = 9001;
     private static final String TAG = "MainActivity";
     private static final String KEY_CAMERA_POSITION = "camera_position";
@@ -51,6 +58,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public static final double SJSU_LONG = -121.881276;
 
     private boolean mLocationPermissionGranted;
+    private boolean isInit = false;
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private Location mCurrentLocation;
@@ -58,15 +66,30 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private LatLngBounds.Builder curLocationAndSJSUBoundBuilder;
     private static MarkerOptions SJSUMarker = new MarkerOptions();
     private CameraPosition mCameraPosition;
-    private TextView tvHelloUser;
     private GoogleSignInOptions gso;
+
+    private TextView tvHelloUser;
+    SharedPreferences sharedPreferences;
+
+    DistanceMatrixTask distanceMatrixTask;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+
         tvHelloUser = (TextView) findViewById(R.id.display_hello_user);
+        if(tvHelloUser != null){
+            String username = sharedPreferences.getString(USER_DISPLAY_NAME, "");
+            if(username.length() > 1){
+                tvHelloUser.setText("Hi, " + username);
+            }
+            else {
+                tvHelloUser.setText("Please log in");
+            }
+        }
         if (savedInstanceState != null) {
             mCurrentLocation = savedInstanceState.getParcelable(KEY_LOCATION);
             mCameraPosition = savedInstanceState.getParcelable(KEY_CAMERA_POSITION);
@@ -108,7 +131,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         try {
             if (mLocationPermissionGranted) {
-                mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
                 LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
                 System.out.println("REGISTER LOCATION UPDATE");
             }
@@ -195,7 +217,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         else if (mCurrentLocation != null) {
             updateMap();
         }
-        _toast("Map is ready");
+
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+                startNavigation(null);
+            }
+        });
+        //_toast("Map is ready");
+
+
 
     }
 
@@ -210,6 +241,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         // Create a LatLngBounds that includes the city of Current Location and SJSU
         updateMap();
 
+        if(!isInit) {
+            distanceMatrixTask = new DistanceMatrixTask();
+            distanceMatrixTask.execute(String.valueOf(mCurrentLocation.getLatitude())
+                    + ","
+                    + String.valueOf(mCurrentLocation.getLongitude()));
+            isInit = true;
+        }
     }
 
     private void updateMap()
@@ -219,7 +257,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             curLocationAndSJSUBoundBuilder = new LatLngBounds.Builder();
             curLocationAndSJSUBoundBuilder.include(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()))
                                         .include(new LatLng(37.335143, -121.881276));
-            System.out.println("LocationUpdate: " + mCurrentLocation.getLatitude() + ", " + mCurrentLocation.getLongitude());
+            //System.out.println("LocationUpdate: " + mCurrentLocation.getLatitude() + ", " + mCurrentLocation.getLongitude());
         }
 
         // Constrain the camera target.
@@ -235,7 +273,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
             mMap.addMarker(SJSUMarker);
             mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(tempBounds, 250));
-            System.out.println("Set Map Bounds");
+            //System.out.println("Set Map Bounds");
         }
     }
 
@@ -285,15 +323,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             handleSignInResult(result);
         }
     }
-    // [END onActivityResult]
 
-    // [START handleSignInResult]
     private void handleSignInResult(GoogleSignInResult result) {
-        Log.d(TAG, "handleSignInResult:" + result.isSuccess());
+        Log.d(TAG, "handleSignInResult:" + result.isSuccess() + "," + result.getStatus());
         if (result.isSuccess()) {
             // Signed in successfully, show authenticated UI.
             GoogleSignInAccount acct = result.getSignInAccount();
-//            mStatusTextView.setText(getString(R.string.signed_in_fmt, acct.getDisplayName()));
+            tvHelloUser.setText("Hi, " + acct.getDisplayName());
+            sharedPreferences.edit().putString("USER_DISPLAY_NAME", acct.getDisplayName()).commit();
+
 //            updateUI(true);
             _toast("Successfully Signed in");
         } else {
@@ -303,16 +341,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         }
     }
-    // [END handleSignInResult]
 
-    // [START signIn]
     private void signIn() {
         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
         startActivityForResult(signInIntent, RC_SIGN_IN);
     }
-    // [END signIn]
 
-    // [START signOut]
     private void signOut() {
         Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
                 new ResultCallback<Status>() {
@@ -323,6 +357,25 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         // [END_EXCLUDE]
                     }
                 });
+    }
+
+
+    public void startNavigation(View view) {
+        Uri gmmIntentUri = Uri.parse("google.navigation:q=" + String.valueOf(SJSU_LAT) + "," + String.valueOf(SJSU_LONG));
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        mapIntent.setPackage("com.google.android.apps.maps");
+        startActivity(mapIntent);
+
+
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(DataContentProvider.LATITUDE, mCurrentLocation.getLatitude());
+        contentValues.put(DataContentProvider.LONGITUDE, mCurrentLocation.getLongitude());
+        contentValues.put(DataContentProvider.TIME, String.valueOf(System.currentTimeMillis()));
+
+        Uri uri = getContentResolver().insert(
+                DataContentProvider.URI, contentValues);
+
+        //Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
     }
 
 

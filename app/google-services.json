@@ -42,6 +42,45 @@
           "status": 1
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:56488565988:android:1464966b44b18869",
+        "android_client_info": {
+          "package_name": "com.tin.sjsucommuterassistant"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "56488565988-u72cn2iimjutgbs4n8e35j9o7lbefld3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tin.sjsucommuterassistant",
+            "certificate_hash": "D0634BF0F86F7DF23F20711C2B9B3E82DF3337B7"
+          }
+        },
+        {
+          "client_id": "56488565988-eqdfc7kkps83m5mvn0g50ndgf9j9jf6c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1T_Cki6bTgFkdSbVAGRHn-WO5_iBce6I"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 1
+        }
+      }
     }
   ],
   "configuration_version": "1"
