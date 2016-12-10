@@ -51,7 +51,7 @@
             android:layout_height="match_parent"
             android:layout_weight="65"
             android:paddingRight="15dp"
-            android:text="XX minutes "
+            android:text="0 minutes "
             android:layout_gravity="center"
             android:gravity="center|right"
             android:textSize="25sp"/>

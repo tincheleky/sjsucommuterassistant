@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -39,6 +40,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.tin.sjsucommuterassistant.R;
+import com.tin.sjsucommuterassistant.dialogs.AdsDialog;
 import com.tin.sjsucommuterassistant.dialogs.LoginDialog;
 import com.tin.sjsucommuterassistant.providers.DataContentProvider;
 import com.tin.sjsucommuterassistant.tasks.DistanceMatrixTask;
@@ -96,7 +98,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         buildGoogleApiClient();
-        mGoogleApiClient.connect();
+//        mGoogleApiClient.connect();
+        new ConnectingTask().execute("Task Connection");
         SJSUMarker.title("SJSU");
         SJSUMarker.position(new LatLng(SJSU_LAT, SJSU_LONG));
     }
@@ -113,6 +116,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 .addApi(LocationServices.API)
                 .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
                 .build();
+
         createLocationRequest();
     }
 
@@ -131,6 +135,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         try {
             if (mLocationPermissionGranted) {
+                mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
                 LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
                 System.out.println("REGISTER LOCATION UPDATE");
             }
@@ -150,6 +155,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     mLocationPermissionGranted = true;
+                    try {
+                        mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+                        updateMap();
+                    }catch (SecurityException e){
+                        e.printStackTrace();
+                    }
                 }
             }
         }
@@ -225,55 +236,56 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
         //_toast("Map is ready");
-
-
-
     }
 
     private void _toast(String whatToToast)
     {
         Toast.makeText(this, whatToToast, Toast.LENGTH_SHORT).show();
     }
+
     @Override
     public void onLocationChanged(Location location) {
 
         mCurrentLocation = location;
         // Create a LatLngBounds that includes the city of Current Location and SJSU
         updateMap();
+        System.out.println("LocationUpdate: " + mCurrentLocation.getLatitude() + ", " + mCurrentLocation.getLongitude());
 
-        if(!isInit) {
-            distanceMatrixTask = new DistanceMatrixTask();
-            distanceMatrixTask.execute(String.valueOf(mCurrentLocation.getLatitude())
-                    + ","
-                    + String.valueOf(mCurrentLocation.getLongitude()));
-            isInit = true;
-        }
+
+//        if(!isInit) {
+//            distanceMatrixTask = new DistanceMatrixTask();
+//            distanceMatrixTask.execute(String.valueOf(mCurrentLocation.getLatitude())
+//                    + ","
+//                    + String.valueOf(mCurrentLocation.getLongitude()));
+//            isInit = true;
+//        }
     }
 
     private void updateMap()
     {
         //getDeviceLocation();
-        if(mCurrentLocation != null) {
-            curLocationAndSJSUBoundBuilder = new LatLngBounds.Builder();
-            curLocationAndSJSUBoundBuilder.include(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()))
-                                        .include(new LatLng(37.335143, -121.881276));
-            //System.out.println("LocationUpdate: " + mCurrentLocation.getLatitude() + ", " + mCurrentLocation.getLongitude());
-        }
+        curLocationAndSJSUBoundBuilder = new LatLngBounds.Builder();
 
-        // Constrain the camera target.
-        if(mMap != null) {
-            LatLngBounds tempBounds = curLocationAndSJSUBoundBuilder.build();
-            mMap.setLatLngBoundsForCameraTarget(tempBounds);
-            mMap.clear();
-            MarkerOptions homeMarker = new MarkerOptions();
-            homeMarker.title("Current Location");
-            if(mCurrentLocation != null) {
-                homeMarker.position(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()));
-                mMap.addMarker(homeMarker);
+        if(mCurrentLocation != null) {
+            curLocationAndSJSUBoundBuilder.include(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()))
+                    .include(new LatLng(37.335143, -121.881276));
+
+
+            // Constrain the camera target.
+            if (mMap != null) {
+                LatLngBounds tempBounds = curLocationAndSJSUBoundBuilder.build();
+                mMap.setLatLngBoundsForCameraTarget(tempBounds);
+                mMap.clear();
+                MarkerOptions homeMarker = new MarkerOptions();
+                homeMarker.title("Current Location");
+                if (mCurrentLocation != null) {
+                    homeMarker.position(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()));
+                    mMap.addMarker(homeMarker);
+                }
+                mMap.addMarker(SJSUMarker);
+                mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(tempBounds, 250));
+                //System.out.println("Set Map Bounds");
             }
-            mMap.addMarker(SJSUMarker);
-            mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(tempBounds, 250));
-            //System.out.println("Set Map Bounds");
         }
     }
 
@@ -285,6 +297,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
         getDeviceLocation();
         updateMap();
+        _toast("onConnected");
     }
 
     @Override
@@ -361,22 +374,40 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     public void startNavigation(View view) {
-        Uri gmmIntentUri = Uri.parse("google.navigation:q=" + String.valueOf(SJSU_LAT) + "," + String.valueOf(SJSU_LONG));
-        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-        mapIntent.setPackage("com.google.android.apps.maps");
-        startActivity(mapIntent);
+        AdsDialog adsDialog = new AdsDialog(this, null);
+        adsDialog.show();
 
+        if(mCurrentLocation != null) {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(DataContentProvider.LATITUDE, mCurrentLocation.getLatitude());
+            contentValues.put(DataContentProvider.LONGITUDE, mCurrentLocation.getLongitude());
+            contentValues.put(DataContentProvider.TIME, String.valueOf(System.currentTimeMillis()));
 
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(DataContentProvider.LATITUDE, mCurrentLocation.getLatitude());
-        contentValues.put(DataContentProvider.LONGITUDE, mCurrentLocation.getLongitude());
-        contentValues.put(DataContentProvider.TIME, String.valueOf(System.currentTimeMillis()));
+            Uri uri = getContentResolver().insert(
+                    DataContentProvider.URI, contentValues);
 
-        Uri uri = getContentResolver().insert(
-                DataContentProvider.URI, contentValues);
-
-        //Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
+            //Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
+        }
     }
 
+    private class ConnectingTask extends AsyncTask<String, Void, String>
+    {
+
+        @Override
+        protected String doInBackground(String... args)
+        {
+            while(!mGoogleApiClient.isConnected())
+            {
+                mGoogleApiClient.connect();
+            }
+            return "Connected";
+        }
+
+        @Override
+        protected void onPostExecute(String result)
+        {
+            //_toast(result);
+        }
+    }
 
 }
