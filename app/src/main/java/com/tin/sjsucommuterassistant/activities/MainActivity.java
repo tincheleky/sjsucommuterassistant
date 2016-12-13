@@ -1,9 +1,24 @@
+/*
+    Tin Che
+    SID: 0106 47 364
+    CS 175 - 2 Final Project.
+    Google sign in is taken from developers.google.com
+*/
+
+
 package com.tin.sjsucommuterassistant.activities;
 
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -16,6 +31,7 @@ import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,7 +46,6 @@ import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -41,13 +56,22 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.tin.sjsucommuterassistant.R;
 import com.tin.sjsucommuterassistant.dialogs.AdsDialog;
-import com.tin.sjsucommuterassistant.dialogs.LoginDialog;
+import com.tin.sjsucommuterassistant.helpers.JSONParserHelper;
 import com.tin.sjsucommuterassistant.providers.DataContentProvider;
-import com.tin.sjsucommuterassistant.tasks.DistanceMatrixTask;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener {
+        GoogleApiClient.OnConnectionFailedListener, SensorEventListener {
 
+    //CONSTANTS:
     public static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 111;
     public static final int UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
     public static final int FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
@@ -59,6 +83,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public static final double SJSU_LAT = 37.335143;
     public static final double SJSU_LONG = -121.881276;
 
+    //MAP Vars:
     private boolean mLocationPermissionGranted;
     private boolean isInit = false;
     private GoogleMap mMap;
@@ -69,8 +94,19 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private static MarkerOptions SJSUMarker = new MarkerOptions();
     private CameraPosition mCameraPosition;
     private GoogleSignInOptions gso;
+    private Geocoder geocoder;
 
+    //Sensors vars:
+    private SensorManager sensorManager;
+    private Sensor sensorCompass;
+    private float compassDegree;
+
+    //UI vars:
     private TextView tvHelloUser;
+    private TextView tvAddress;
+    private TextView tvCompass;
+    private TextView tvDelay;
+    private ImageView ivTraffic;
     SharedPreferences sharedPreferences;
 
     DistanceMatrixTask distanceMatrixTask;
@@ -80,9 +116,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        geocoder = new Geocoder(this, Locale.getDefault());
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
         tvHelloUser = (TextView) findViewById(R.id.display_hello_user);
+        tvDelay = (TextView) findViewById(R.id.display_traffic_delay);
+        tvAddress = (TextView) findViewById(R.id.display_address);
+        tvCompass = (TextView) findViewById(R.id.display_compass);
+        ivTraffic = (ImageView) findViewById(R.id.display_traffic_status);
         if(tvHelloUser != null){
             String username = sharedPreferences.getString(USER_DISPLAY_NAME, "");
             if(username.length() > 1){
@@ -102,6 +144,18 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         new ConnectingTask().execute("Task Connection");
         SJSUMarker.title("SJSU");
         SJSUMarker.position(new LatLng(SJSU_LAT, SJSU_LONG));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener(this);
     }
 
     private synchronized void buildGoogleApiClient() {
@@ -206,16 +260,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
     }
 
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
+    //Do setup things when Map is ready
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -235,6 +280,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 startNavigation(null);
             }
         });
+
         //_toast("Map is ready");
     }
 
@@ -252,13 +298,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         System.out.println("LocationUpdate: " + mCurrentLocation.getLatitude() + ", " + mCurrentLocation.getLongitude());
 
 
-//        if(!isInit) {
-//            distanceMatrixTask = new DistanceMatrixTask();
-//            distanceMatrixTask.execute(String.valueOf(mCurrentLocation.getLatitude())
-//                    + ","
-//                    + String.valueOf(mCurrentLocation.getLongitude()));
-//            isInit = true;
-//        }
+        if(!isInit) {
+            distanceMatrixTask = new DistanceMatrixTask();
+            distanceMatrixTask.execute(String.valueOf(mCurrentLocation.getLatitude())
+                    + ","
+                    + String.valueOf(mCurrentLocation.getLongitude()));
+
+            isInit = true;
+        }
     }
 
     private void updateMap()
@@ -267,9 +314,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         curLocationAndSJSUBoundBuilder = new LatLngBounds.Builder();
 
         if(mCurrentLocation != null) {
+            //UPDATE MAP MARKERS
             curLocationAndSJSUBoundBuilder.include(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()))
                     .include(new LatLng(37.335143, -121.881276));
-
 
             // Constrain the camera target.
             if (mMap != null) {
@@ -286,7 +333,57 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(tempBounds, 250));
                 //System.out.println("Set Map Bounds");
             }
+
+            //UPDATE ADDRESS
+            updateAddressTextView();
+
         }
+    }
+
+    private void updateAddressTextView()
+    {
+        List<Address> addresses = null;
+        try {
+            if(geocoder != null) {
+                addresses = geocoder.getFromLocation(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude(), 1);
+            }
+            if(tvAddress != null) {
+                if(addresses != null) {
+                    tvAddress.setText(addresses.get(0).getAddressLine(0) + ", " + addresses.get(0).getLocality());
+                }
+            }
+
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+
+    private void updateCompassTextView()
+    {
+        int range = (int) (compassDegree / (360f / 16f));
+        String degreesToDirection = "";
+
+        if (range == 15 || range == 0)
+            degreesToDirection = "N";
+        if (range == 1 || range == 2)
+            degreesToDirection = "NE";
+        if (range == 3 || range == 4)
+            degreesToDirection = "E";
+        if (range == 5 || range == 6)
+            degreesToDirection = "SE";
+        if (range == 7 || range == 8)
+            degreesToDirection = "S";
+        if (range == 9 || range == 10)
+            degreesToDirection = "SW";
+        if (range == 11 || range == 12)
+            degreesToDirection = "W";
+        if (range == 13 || range == 14)
+            degreesToDirection = "NW";
+
+        if(tvCompass != null) {
+            tvCompass.setText(degreesToDirection);
+        }
+//        System.out.println("COMPASS DATA: " + compassDegree);
     }
 
     @Override
@@ -390,6 +487,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    //METHODS FOR SensorEventListenner
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        compassDegree = sensorEvent.values[0];
+
+        updateCompassTextView();
+
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+
+    }
+
     private class ConnectingTask extends AsyncTask<String, Void, String>
     {
 
@@ -410,4 +521,139 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+
+    //This class and downloadUrl function are partially taken from
+    //http://wptrafficanalyzer.in/blog/gps-and-google-map-in-android-applications-series/
+    private class DistanceMatrixTask extends AsyncTask<String, Void, String[]>{
+
+        @Override
+        protected String[] doInBackground(String... params) {
+            // For storing data from web service
+            String data[] = new String[2];
+
+            // Obtain browser key from https://code.google.com/apis/console
+            String key = "key=AIzaSyA7qp9aVHzsRTtNs4TT99bSYQYt0lUdPn4";
+
+            //https://maps.googleapis.com/maps/api/distancematrix/json?
+            // origins=37.359289,-121.966124
+            // &destinations=37.335143,-121.881276
+            // &mode=driving&departure_time=now
+            // &traffic_mode=best_guess
+            // &key=AIzaSyA7qp9aVHzsRTtNs4TT99bSYQYt0lUdPn4
+
+            // Current Location
+            String origins = "origins=" + params[0];
+
+            // SJSU coordinate
+            String destinations = "destinations=37.335143,-121.881276";
+
+            // Mode
+            String mode = "mode=driving";
+
+            /// Departure_time
+            String departure_time = "departure_time=now";
+
+            //traffic_mode
+            String traffic_mode = "traffic_mode=best_guess";
+
+
+
+            // Building the parameters to the web service
+            String parameters1 = origins + "&" + destinations + "&" + key;
+            String parameters2 = origins + "&" + destinations + "&" + mode + "&" + departure_time + "&" + traffic_mode + "&" + key;
+
+
+            // Output format
+            String output = "json";
+
+            // Building the url to the web service
+            String url1 = "https://maps.googleapis.com/maps/api/distancematrix/" + output + "?" + parameters1;
+            String url2 = "https://maps.googleapis.com/maps/api/distancematrix/" + output + "?" + parameters2;
+
+
+            try{
+                // Fetching the data from we service
+                data[0] = downloadUrl(url1);
+                data[1] = downloadUrl(url2);
+//                System.out.println(url1);
+            }catch(Exception e){
+                Log.d("Background Task",e.toString());
+            }
+            return data;
+        }
+
+        @Override
+        protected void onPostExecute(String[] result) {
+            super.onPostExecute(result);
+
+//        // Creating ParserTask
+//        parserTask = new ParserTask();
+//
+//        // Starting Parsing the JSON string returned by Web Service
+//        parserTask.execute(result);
+            System.out.println("API CALL FOR DISTANCE MATRIX");
+            System.out.println(result);
+            int duration = JSONParserHelper.getDurationFromJSON(result[0]);
+            int duration_in_traffic = JSONParserHelper.getDurationInTrafficFromJSON(result[1]);
+            int delay = duration_in_traffic - duration;
+
+            if(tvDelay != null){
+                delay /= 60;
+                if(delay < 0)
+                    delay = 0;
+                tvDelay.setText(String.valueOf(delay) + " minutes");
+
+            }
+            double percentage = duration_in_traffic / (double) duration;
+            if(ivTraffic != null){
+                if(percentage > 70.){
+                    ivTraffic.setBackgroundColor(Color.RED);
+                }else if(percentage > 25.){
+                    ivTraffic.setBackgroundColor(Color.YELLOW);
+                }else{
+                    ivTraffic.setBackgroundColor(Color.GREEN);
+                }
+            }
+
+        }
+
+        /** A method to download json data from url */
+        private String downloadUrl(String strUrl) throws IOException {
+            String data = "";
+            InputStream iStream = null;
+            HttpURLConnection urlConnection = null;
+            try{
+                URL url = new URL(strUrl);
+
+                // Creating an http connection to communicate with url
+                urlConnection = (HttpURLConnection) url.openConnection();
+
+                // Connecting to url
+                urlConnection.connect();
+
+                // Reading data from url
+                iStream = urlConnection.getInputStream();
+
+                BufferedReader br = new BufferedReader(new InputStreamReader(iStream));
+
+                StringBuffer sb = new StringBuffer();
+
+                String line = "";
+                while( ( line = br.readLine()) != null){
+                    sb.append(line);
+                }
+
+                data = sb.toString();
+
+                br.close();
+
+            }catch(Exception e){
+                e.printStackTrace();
+            }finally{
+                iStream.close();
+                urlConnection.disconnect();
+            }
+            return data;
+        }
+    }
 }

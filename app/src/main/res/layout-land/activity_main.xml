@@ -6,8 +6,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:weightSum="100"
-    android:orientation="horizontal">
+    android:orientation="vertical">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:weightSum="100"
+        android:orientation="horizontal"
+        android:layout_weight="90">
 
     <LinearLayout
         android:layout_width="0dp"
@@ -102,7 +108,7 @@
             map:uiRotateGestures="false"
             map:uiTiltGestures="false"
             map:uiZoomControls="false"
-            map:uiZoomGestures="false" />
+            map:uiZoomGestures="false"/>
 
         <TextView
             android:id="@+id/start_navigation"
@@ -114,7 +120,37 @@
             android:layout_centerInParent="true"
             android:paddingTop="10dp"
             android:onClick="startNavigation" />
+
     </RelativeLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="10"
+        android:weightSum="100">
+
+        <TextView
+            android:id="@+id/display_address"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="95"
+            android:text="address here"
+            android:textSize="15sp"
+            android:gravity="center"/>
+
+        <TextView
+            android:id="@+id/display_compass"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="5"
+            android:text="N"
+            android:textSize="15sp"
+            android:gravity="center"
+            android:foregroundGravity="center"/>
+
+    </LinearLayout>
 
 
 </LinearLayout>

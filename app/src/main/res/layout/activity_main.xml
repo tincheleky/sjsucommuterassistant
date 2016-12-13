@@ -12,7 +12,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="15">
+        android:layout_weight="10">
 
         <TextView
             android:id="@+id/display_hello_user"
@@ -29,7 +29,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="15"
+        android:layout_weight="10"
         android:orientation="horizontal"
         android:weightSum="100"
         android:paddingLeft="15dp"
@@ -56,14 +56,41 @@
             android:gravity="center|right"
             android:textSize="25sp"/>
 
-        <ImageButton
+        <ImageView
+            android:id="@+id/display_traffic_status"
             android:layout_marginTop="10dp"
             android:layout_marginBottom="10dp"
-            android:id="@+id/display_traffic_status"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="15"
             android:background="@android:color/holo_green_light" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="10"
+        android:weightSum="100">
+
+        <TextView
+            android:id="@+id/display_address"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="90"
+            android:text="address here"
+            android:textSize="15sp"
+            android:gravity="center"/>
+
+        <TextView
+            android:id="@+id/display_compass"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="10"
+            android:text="N"
+            android:textSize="15sp"
+            android:gravity="center"
+            android:foregroundGravity="center"/>
 
     </LinearLayout>
 
