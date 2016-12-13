@@ -30,6 +30,7 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -57,6 +58,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.tin.sjsucommuterassistant.R;
 import com.tin.sjsucommuterassistant.dialogs.AdsDialog;
 import com.tin.sjsucommuterassistant.helpers.JSONParserHelper;
+import com.tin.sjsucommuterassistant.listeners.OnSwipeListener;
 import com.tin.sjsucommuterassistant.providers.DataContentProvider;
 
 import java.io.BufferedReader;
@@ -83,7 +85,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public static final double SJSU_LAT = 37.335143;
     public static final double SJSU_LONG = -121.881276;
 
-    //MAP Vars:
+    //Google Vars:
     private boolean mLocationPermissionGranted;
     private boolean isInit = false;
     private GoogleMap mMap;
@@ -98,7 +100,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     //Sensors vars:
     private SensorManager sensorManager;
-    private Sensor sensorCompass;
     private float compassDegree;
 
     //UI vars:
@@ -107,9 +108,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private TextView tvCompass;
     private TextView tvDelay;
     private ImageView ivTraffic;
+    private TextView tvSignout;
     SharedPreferences sharedPreferences;
 
     DistanceMatrixTask distanceMatrixTask;
+
+    //App var:
+    boolean isLoggedIn = false;
 
 
     @Override
@@ -125,7 +130,35 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         tvAddress = (TextView) findViewById(R.id.display_address);
         tvCompass = (TextView) findViewById(R.id.display_compass);
         ivTraffic = (ImageView) findViewById(R.id.display_traffic_status);
+        tvSignout = (TextView) findViewById(R.id.signout_button);
         if(tvHelloUser != null){
+            tvHelloUser.setOnTouchListener(new OnSwipeListener(MainActivity.this){
+
+                @Override
+                public void onSwipeRight(){
+                    System.out.println("TESTING SWIPE RIGHT");
+                    if(tvSignout != null) {
+                        tvSignout.setVisibility(ImageView.INVISIBLE);
+                        tvSignout.setEnabled(false);
+                    }
+
+                }
+
+                @Override
+                public void onSwipeLeft(){
+                    System.out.println("TESTING SWIPE LEFT");
+                    if(tvSignout != null) {
+                        tvSignout.setVisibility(ImageView.VISIBLE);
+                        tvSignout.setEnabled(true);
+                    }
+                }
+
+                @Override
+                public void onClick() {
+                    super.onClick();
+                    signIn();
+                }
+            });
             String username = sharedPreferences.getString(USER_DISPLAY_NAME, "");
             if(username.length() > 1){
                 tvHelloUser.setText("Hi, " + username);
@@ -134,6 +167,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 tvHelloUser.setText("Please log in");
             }
         }
+
         if (savedInstanceState != null) {
             mCurrentLocation = savedInstanceState.getParcelable(KEY_LOCATION);
             mCameraPosition = savedInstanceState.getParcelable(KEY_CAMERA_POSITION);
@@ -437,6 +471,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private void handleSignInResult(GoogleSignInResult result) {
         Log.d(TAG, "handleSignInResult:" + result.isSuccess() + "," + result.getStatus());
         if (result.isSuccess()) {
+            isLoggedIn = true;
             // Signed in successfully, show authenticated UI.
             GoogleSignInAccount acct = result.getSignInAccount();
             tvHelloUser.setText("Hi, " + acct.getDisplayName());
@@ -467,6 +502,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         // [END_EXCLUDE]
                     }
                 });
+        isLoggedIn = false;
     }
 
 
@@ -499,6 +535,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
+    }
+
+    public void signOutAccounts(View view) {
+        signOut();
+        if(sharedPreferences!= null){
+            sharedPreferences.edit().putString(USER_DISPLAY_NAME, "").commit();
+        }
+        if(tvHelloUser != null){
+            tvHelloUser.setText("Please sign in ");
+        }
+        if(tvSignout != null) {
+            tvSignout.setVisibility(ImageView.INVISIBLE);
+            tvSignout.setEnabled(false);
+        }
     }
 
     private class ConnectingTask extends AsyncTask<String, Void, String>
