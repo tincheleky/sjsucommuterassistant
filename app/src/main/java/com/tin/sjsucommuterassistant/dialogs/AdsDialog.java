@@ -46,8 +46,6 @@ public class AdsDialog extends Dialog {
             mapIntent.setPackage("com.google.android.apps.maps");
             context.startActivity(mapIntent);
 
-
-
         }
     }
 

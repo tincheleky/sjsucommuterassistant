@@ -12,6 +12,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -22,6 +23,7 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -44,6 +46,7 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.fitness.data.Value;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -62,11 +65,15 @@ import com.tin.sjsucommuterassistant.listeners.OnSwipeListener;
 import com.tin.sjsucommuterassistant.providers.DataContentProvider;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
@@ -77,6 +84,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 111;
     public static final int UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
     public static final int FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
+    public static final String FILE_NAME = "sjsu_commuter_assistant";
     public static final String USER_DISPLAY_NAME = "USER_DISPLAY_NAME";
     private static final int RC_SIGN_IN = 9001;
     private static final String TAG = "MainActivity";
@@ -115,7 +123,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     //App var:
     boolean isLoggedIn = false;
-
+    boolean hasExternalStorage = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,6 +132,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         geocoder = new Geocoder(this, Locale.getDefault());
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        hasExternalStorage = isExternalAvailalble();
 
         tvHelloUser = (TextView) findViewById(R.id.display_hello_user);
         tvDelay = (TextView) findViewById(R.id.display_traffic_delay);
@@ -162,6 +171,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             String username = sharedPreferences.getString(USER_DISPLAY_NAME, "");
             if(username.length() > 1){
                 tvHelloUser.setText("Hi, " + username);
+                isLoggedIn = true;
             }
             else {
                 tvHelloUser.setText("Please log in");
@@ -511,15 +521,49 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         adsDialog.show();
 
         if(mCurrentLocation != null) {
-            ContentValues contentValues = new ContentValues();
-            contentValues.put(DataContentProvider.LATITUDE, mCurrentLocation.getLatitude());
-            contentValues.put(DataContentProvider.LONGITUDE, mCurrentLocation.getLongitude());
-            contentValues.put(DataContentProvider.TIME, String.valueOf(System.currentTimeMillis()));
+            if(isLoggedIn) {
+                ContentValues contentValues = new ContentValues();
+                contentValues.put(DataContentProvider.LATITUDE, mCurrentLocation.getLatitude());
+                contentValues.put(DataContentProvider.LONGITUDE, mCurrentLocation.getLongitude());
+                contentValues.put(DataContentProvider.TIME, String.valueOf(System.currentTimeMillis()));
 
-            Uri uri = getContentResolver().insert(
-                    DataContentProvider.URI, contentValues);
+                Uri uri = getContentResolver().insert(
+                        DataContentProvider.URI, contentValues);
 
-            //Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
+                //Toast.makeText(this, uri.toString(), Toast.LENGTH_LONG).show();
+
+                Uri data = Uri.parse("content://com.tin.sjsucommuterassistant.providers.DataContentProvider");
+                Cursor c = managedQuery(data, null, null, null, "_id");
+                int entries = 0;
+                if(c != null) {
+                    if (c.moveToFirst()) {
+                        do {
+                            entries++;
+                        } while (c.moveToNext());
+                    }
+                    System.out.println("Total Data in DB: " + entries);
+                }
+
+            }
+
+            if(hasExternalStorage){
+                try {
+                    FileOutputStream fos = openFileOutput(FILE_NAME, MODE_PRIVATE);
+                    Calendar calendar = Calendar.getInstance();
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String strDate = sdf.format(calendar.getTime());
+                    fos.write(strDate.getBytes());
+                    fos.close();
+                    System.out.println("Write to File successfully");
+
+                    FileInputStream fis = openFileInput(FILE_NAME);
+                    System.out.println("Bytes available to read: " + fis.available());
+                }catch (IOException e){
+                    e.printStackTrace();
+                }
+            }
+
+
         }
     }
 
@@ -656,9 +700,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
             double percentage = duration_in_traffic / (double) duration;
             if(ivTraffic != null){
-                if(percentage > 70.){
+                System.out.println("PERCENTAGE: " + percentage);
+                if(percentage > 1.70){
                     ivTraffic.setBackgroundColor(Color.RED);
-                }else if(percentage > 25.){
+                }else if(percentage > 1.25){
                     ivTraffic.setBackgroundColor(Color.YELLOW);
                 }else{
                     ivTraffic.setBackgroundColor(Color.GREEN);
@@ -706,4 +751,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             return data;
         }
     }
+
+    //Check if external storage is available for Read and Write.
+    private boolean isExternalAvailalble() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
+    }
+
 }
