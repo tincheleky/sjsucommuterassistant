@@ -328,11 +328,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         //_toast("Map is ready");
     }
 
+    //Easy Toaster
     private void _toast(String whatToToast)
     {
         Toast.makeText(this, whatToToast, Toast.LENGTH_SHORT).show();
     }
 
+    //Call backs when location changed
     @Override
     public void onLocationChanged(Location location) {
 
@@ -352,6 +354,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    //Function to update the map when location changed.
     private void updateMap()
     {
         //getDeviceLocation();
@@ -384,6 +387,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    //Function to update the address text view UI
     private void updateAddressTextView()
     {
         List<Address> addresses = null;
@@ -402,6 +406,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    //Function to update the compass text view UI
     private void updateCompassTextView()
     {
         int range = (int) (compassDegree / (360f / 16f));
@@ -466,7 +471,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    // [START onActivityResult]
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -497,11 +502,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    //Google Sign In Log in
     private void signIn() {
         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
         startActivityForResult(signInIntent, RC_SIGN_IN);
     }
 
+    //google signin API log out
     private void signOut() {
         Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
                 new ResultCallback<Status>() {
@@ -516,12 +523,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
+    //FUNCTION GET CALLED WHEN CLICKED ON MAP
     public void startNavigation(View view) {
         AdsDialog adsDialog = new AdsDialog(this, null);
         adsDialog.show();
 
+
         if(mCurrentLocation != null) {
             if(isLoggedIn) {
+                //READ AND INSERT FOR CONTENT PROVIDER.
                 ContentValues contentValues = new ContentValues();
                 contentValues.put(DataContentProvider.LATITUDE, mCurrentLocation.getLatitude());
                 contentValues.put(DataContentProvider.LONGITUDE, mCurrentLocation.getLongitude());
@@ -548,6 +558,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             if(hasExternalStorage){
                 try {
+                    //OPEN AND READ EXTERNAL FILE
                     FileOutputStream fos = openFileOutput(FILE_NAME, MODE_PRIVATE);
                     Calendar calendar = Calendar.getInstance();
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -581,6 +592,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+    //Function get called when Click on Sign Out button
     public void signOutAccounts(View view) {
         signOut();
         if(sharedPreferences!= null){
@@ -595,6 +607,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    //AsyncTask to help connect to Google API
     private class ConnectingTask extends AsyncTask<String, Void, String>
     {
 
@@ -712,7 +725,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         }
 
-        /** A method to download json data from url */
+        //A method to download json data from url
         private String downloadUrl(String strUrl) throws IOException {
             String data = "";
             InputStream iStream = null;
